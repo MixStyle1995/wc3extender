@@ -1,0 +1,1 @@
+pub const MAIN: &str = include_str!("../../../scripts/main.lua");
