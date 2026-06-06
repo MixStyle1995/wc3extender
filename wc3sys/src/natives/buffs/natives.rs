@@ -10,6 +10,7 @@ const APPLY_BUFF_FACTORY_RAWCODE_PATCH_OFFSETS: [usize; 3] = [0x16, 0x4D, 0xA5];
 
 const VT_CONFIG: usize = 0x32C;
 const VT_BASE_BIND: usize = 0x328;
+const VISUAL_REFRESH_STATIC: usize = 0x6F6C30;
 
 type RawUnit = usize;
 type RawEffect = usize;
@@ -46,11 +47,20 @@ type EffectBaseBindFn = unsafe extern "thiscall" fn(
     show_art: i32,
 ) -> i32;
 
+
+type EffectVisualRefreshFn = unsafe extern "thiscall" fn(
+    effect: RawEffect,
+    config: *const u8,
+    duration: *const f32,
+) -> i32;
+
 unsafe fn vfunc<T>(object: usize, offset: usize) -> T {
     let vtable = unsafe { (object as *const usize).read_unaligned() };
     let target = unsafe { ((vtable + offset) as *const usize).read_unaligned() };
     unsafe { core::mem::transmute_copy::<usize, T>(&target) }
 }
+
+
 
 unsafe fn unit_handle_to_cunit(handle: u32) -> RawUnit {
     if handle == 0 {
@@ -122,6 +132,29 @@ unsafe fn bind_apply_buff(
     true
 }
 
+
+unsafe fn refresh_apply_buff_visual(
+    effect: RawEffect,
+    target: RawUnit,
+    duration: f32,
+    config: *const u8,
+) -> bool {
+    if effect == 0 || target == 0 || duration <= 0.0 {
+        return false;
+    }
+
+    let refresh_addr = addresses::rebase(addresses::get().base, VISUAL_REFRESH_STATIC);
+    let refresh: EffectVisualRefreshFn = unsafe { core::mem::transmute(refresh_addr) };
+
+    unsafe {
+        refresh(effect, config, &duration);
+    }
+
+    true
+}
+
+
+
 unsafe fn create_effect_with_apply_buff_factory(rawcode: u32) -> RawEffect {
     let template_addr = addresses::get().create_bslo_effect;
     let template_len = APPLY_BUFF_FACTORY_WRAPPER_LEN;
@@ -179,7 +212,7 @@ unsafe fn apply_buff_to_unit(target: RawUnit, rawcode: u32, duration: f32) -> bo
 
     let existing = unsafe { find_effect_by_stored_rawcode(target, rawcode) };
     if existing != 0 {
-        return unsafe { bind_apply_buff(existing, target, duration, config.as_ptr()) };
+        return unsafe { refresh_apply_buff_visual(existing, target, duration, config.as_ptr()) };
     }
 
     let effect = unsafe { create_effect_with_apply_buff_factory(rawcode) };
