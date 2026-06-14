@@ -8,6 +8,8 @@ WIP Warcraft III feature extender. Aiming to be roughly the SKSE equivalent for 
 - Native registration
 - Mounting MPQ files
 - Frames API (halfway working)
+- Loading lua scripts from maps
+- Barebones plugins api
 
 **Todo**
 - Support 1.29 map data
@@ -17,7 +19,7 @@ WIP Warcraft III feature extender. Aiming to be roughly the SKSE equivalent for 
 
 - `wc3sys/` — injected DLL / runtime
 - `wc3/` — helper + plugin ABI crate
-
+- `wc3launcher` - The launcher
 
 ## Credits
 
