@@ -24,14 +24,14 @@ pub fn is_mouse_event(event_id: u32) -> bool {
 
 pub unsafe fn hovered_frame() -> usize {
     let addrs = addresses::get();
-    let active_layer = unsafe { (addrs.c_layer_active_layer as *const usize).read_unaligned() };
+    let active_layer = unsafe { (addrs.frames.c_layer_active_layer as *const usize).read_unaligned() };
     if active_layer == 0 {
         return 0;
     }
 
     let find_under_cursor: CLayerFindLayerUnderCursorFn =
-        unsafe { core::mem::transmute(addrs.c_layer_find_under_cursor) };
-    unsafe { find_under_cursor(active_layer, addrs.c_layer_find_under_cursor_arg) }
+        unsafe { core::mem::transmute(addrs.frames.c_layer_find_under_cursor) };
+    unsafe { find_under_cursor(active_layer, addrs.frames.c_layer_find_under_cursor_arg) }
 }
 
 unsafe fn read_event_id(event: *mut c_void) -> u32 {
@@ -68,7 +68,7 @@ pub unsafe extern "thiscall" fn c_observer_dispatch_event_handler(
     let ui_event = unsafe { capture_event(this, event) };
     crate::natives::frames::events::on_ui_event(ui_event);
 
-    let tramp = hook_manager::trampoline(addresses::get().c_observer_dispatch_event)
+    let tramp = hook_manager::trampoline(addresses::get().frames.c_observer_dispatch_event)
         .expect("c_observer_dispatch_event trampoline missing");
     let original: crate::ui::hooks::CObserverDispatchEventFn = unsafe { core::mem::transmute(tramp) };
     unsafe { original(this, event) }

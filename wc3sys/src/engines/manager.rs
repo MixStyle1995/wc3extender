@@ -1,9 +1,10 @@
 use core::ffi::c_void;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use crate::error::Result;
+use crate::lifecycle::{self, ConfigRebuild, JassFunctionCalled, MainStarted, NativeRegistration};
 use crate::logging;
 
 use super::{CallbackContext, Engine, EngineContext};
@@ -29,7 +30,7 @@ struct CallbackEntry {
 static ENGINES: Mutex<Vec<Arc<dyn Engine>>> = Mutex::new(Vec::new());
 static CALLBACKS: OnceLock<Mutex<HashMap<u32, CallbackEntry>>> = OnceLock::new();
 static NEXT_CALLBACK_ID: AtomicU32 = AtomicU32::new(CALLBACK_RESERVED_BASE);
-static MAIN_CALLED: AtomicBool = AtomicBool::new(false);
+
 fn handle() -> ManagerHandle {
     ManagerHandle
 }
@@ -97,7 +98,6 @@ pub fn try_dispatch_callback_code(code_id: u32, context: CallbackContext) -> boo
     true
 }
 
-
 fn register_native_for_all(name: &str, signature: &str, func: *const c_void) {
     for engine in snapshot() {
         engine.register_native(name, signature, func);
@@ -105,35 +105,18 @@ fn register_native_for_all(name: &str, signature: &str, func: *const c_void) {
 }
 
 fn map_payload_for(engine: &Arc<dyn Engine>) -> Option<Vec<u8>> {
-    let sig = engine.map_signature()?;
-    let marker = crate::archives::read_file(sig.marker_path)?;
+    let path = engine.map_entrypoint()?;
+    let payload = crate::archives::read_cached_game_file(path)?;
     logging::info(&format!(
-        "engines: map signature matched for {} at {}",
+        "engines: loaded map file for {} at {}",
         engine.name(),
-        sig.marker_path
+        path
     ));
-
-    if sig.payload_path == sig.marker_path {
-        return Some(marker);
-    }
-
-    match crate::archives::read_file(sig.payload_path) {
-        Some(payload) => Some(payload),
-        None => {
-            logging::warn(&format!(
-                "engines: map payload missing for {} at {}",
-                engine.name(),
-                sig.payload_path
-            ));
-            None
-        }
-    }
+    Some(payload)
 }
 
 fn config_all() {
-    MAIN_CALLED.store(false, Ordering::Relaxed);
     clear_callbacks();
-    crate::natives::frames::events::clear();
 
     let native_snapshot = natives::snapshot();
 
@@ -144,6 +127,7 @@ fn config_all() {
         for rec in &native_snapshot {
             engine.register_native(&rec.name, &rec.signature, rec.func as *const c_void);
         }
+        engine.post_config();
     }
 }
 
@@ -158,21 +142,26 @@ pub(super) fn on_jass_native_registered(name: &str, signature: &str, func: *cons
     register_native_for_all(name, signature, func);
 }
 
-pub(super) fn on_jass_function_called(name: &str) {
-    if name == "config" {
+struct EnginesLifecycle;
+
+impl EnginesLifecycle {
+    fn on_config_rebuild(&self, event: &ConfigRebuild) {
+        let _ = event.reload;
         config_all();
+        function_called_for_all("config");
     }
 
-    if name == "main" && MAIN_CALLED.swap(true, Ordering::Relaxed) {
-        logging::info("engines: main skipped; already dispatched for this config");
-        return;
+    fn on_main_started(&self, _: &MainStarted) {
+        function_called_for_all("main");
     }
 
-    function_called_for_all(name);
-}
+    fn on_jass_function_called(&self, event: &JassFunctionCalled) {
+        function_called_for_all(&event.name);
+    }
 
-pub(super) fn on_jass_native_registration_phase() {
-    natives::flush_pending();
+    fn on_native_registration(&self, _: &NativeRegistration) {
+        natives::flush_pending();
+    }
 }
 
 pub fn init() -> Result<()> {
@@ -180,6 +169,12 @@ pub fn init() -> Result<()> {
     handlers::install()?;
 
     install(Arc::new(lua::LuaEngine::new()))?;
+
+    lifecycle::component(Arc::new(EnginesLifecycle))
+        .on(EnginesLifecycle::on_config_rebuild)
+        .on(EnginesLifecycle::on_main_started)
+        .on(EnginesLifecycle::on_jass_function_called)
+        .on(EnginesLifecycle::on_native_registration);
 
     logging::info("engines: initialized");
     Ok(())

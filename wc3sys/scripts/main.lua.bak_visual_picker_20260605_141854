@@ -1,0 +1,192 @@
+local function fourcc(s)
+    return string.byte(s, 1) * 0x1000000
+        + string.byte(s, 2) * 0x10000
+        + string.byte(s, 3) * 0x100
+        + string.byte(s, 4)
+end
+
+local function register_frame_click(frame, action)
+    local trigger = CreateTrigger()
+    if not trigger or trigger == 0 then
+        print("CreateTrigger failed for frame click")
+        return 0
+    end
+
+    BlzTriggerRegisterFrameEvent(trigger, frame, 1)
+    TriggerAddAction(trigger, action)
+    return trigger
+end
+
+local function create_icon_button(parent, x, y, texture, callback)
+    local button = BlzCreateFrame("ScriptDialogButton", parent, 0, 0)
+    if not button or button == 0 then
+        return 0, 0
+    end
+
+    local icon = BlzCreateFrame("EscMenuBackdrop", button, 0, 0)
+
+    BlzFrameClearAllPoints(button)
+    BlzFrameSetSize(button, 0.060, 0.060)
+    BlzFrameSetAbsPoint(button, 4, x, y)
+    BlzFrameShow(button, 1)
+
+    if icon and icon ~= 0 then
+        BlzFrameClearAllPoints(icon)
+        BlzFrameSetSize(icon, 0.065, 0.065)
+        BlzFrameSetAbsPoint(icon, 4, x, y)
+        BlzFrameSetTexture(icon, texture, 0, 1)
+        BlzFrameShow(icon, 1)
+    end
+
+    register_frame_click(button, callback)
+    return button, icon
+end
+
+function main()
+    local player = Player(0)
+    local gameUI = BlzGetGameUI()
+    if not gameUI or gameUI == 0 then
+        print("BlzGetGameUI failed")
+        return
+    end
+
+    BlzLoadTOCFile("UI\\FrameDef\\FrameDef.toc")
+
+    local isOpen = false
+    local menuFrames = {}
+
+    -- Track spawn order so the 2nd unit can be slowed by the 1st.
+    local spawnedUnits = {}
+
+    local function show_menu(show)
+        isOpen = show
+
+        for _, frame in ipairs(menuFrames) do
+            if frame and frame ~= 0 then
+                BlzFrameShow(frame, show and 1 or 0)
+            end
+        end
+    end
+
+    local function spawn_hero(unitId, name)
+        local unit = CreateUnit(player, fourcc(unitId), 0.0, 0.0, 270.0)
+        if not unit or unit == 0 then
+            print("Failed to spawn " .. name)
+            return
+        end
+
+        SetHeroLevel(unit, 10, false)
+        table.insert(spawnedUnits, unit)
+
+        local index = #spawnedUnits
+
+        if index == 1 then
+            -- First unit: root itself for 2s.
+            CeRootsUnit(unit, 2.0, unit)
+            print("Spawned " .. name .. " (#1) and rooted by self for 2s")
+        elseif index == 2 then
+            -- Second unit: root self for 2s, slowed for 10s by the previous unit.
+            local previous = spawnedUnits[1]
+            --CeRootsUnit(unit, 2.0, unit)
+            --CeSlowUnit(unit, 10.0, -0.60, -0.25, previous)
+			--CeAntiMagicShellUnit(unit, fourcc('BSTN'), 20.00, 500.00)
+			CeMagicVisualBuffUnit(unit,fourcc("BEer"),10.00)
+			CeMagicVisualBuffUnit(unit,fourcc("Bslo"),5.00)
+			--CeAntiMagicShellUnit(unit, fourcc('BSTN'), 20.00, 500.00)
+
+			print("Spawned " .. name .. " (#2): self-root 2s, slowed 10s by previous unit")
+		elseif index > 2 then
+			CeAntiMagicShellUnit(unit, fourcc('Bslo'), 10.00, 500.00)          
+        else
+            print("Spawned " .. name .. " (#" .. index .. ") with no effects")
+        end
+    end
+
+    local menuBackdrop = BlzCreateFrame("EscMenuBackdrop", gameUI, 0, 0)
+    local title = BlzCreateFrame("EscMenuMainPanelDialogTextTemplate", gameUI, 0, 0)
+
+    table.insert(menuFrames, menuBackdrop)
+    table.insert(menuFrames, title)
+
+    BlzFrameClearAllPoints(menuBackdrop)
+    BlzFrameSetSize(menuBackdrop, 0.360, 0.210)
+    BlzFrameSetAbsPoint(menuBackdrop, 4, 0.400, 0.330)
+    BlzFrameSetTexture(menuBackdrop, "UI\\Widgets\\EscMenu\\Human\\blank-background.blp", 0, 1)
+
+    BlzFrameClearAllPoints(title)
+    BlzFrameSetSize(title, 0.260, 0.035)
+    BlzFrameSetAbsPoint(title, 4, 0.400, 0.400)
+    BlzTextFrameSetText(title, "Cheat Console")
+    BlzFrameSetTextColor(title, 0xFFFFFFFF)
+
+    local units = {
+        {
+            id = "Nplh",
+            name = "Pit Lord",
+            x = 0.305,
+            texture = "ReplaceableTextures\\CommandButtons\\BTNPitLord.blp",
+        },
+        {
+            id = "Ekee",
+            name = "Keeper of the Grove",
+            x = 0.400,
+            texture = "ReplaceableTextures\\CommandButtons\\BTNKeeperOfTheGrove.blp",
+        },
+        {
+            id = "Nfir",
+            name = "Firelord",
+            x = 0.495,
+            texture = "ReplaceableTextures\\CommandButtons\\BTNHeroAvatarOfFlame.blp",
+        },
+    }
+
+    for _, spec in ipairs(units) do
+        local button, icon = create_icon_button(gameUI, spec.x, 0.320, spec.texture, function()
+            spawn_hero(spec.id, spec.name)
+        end)
+
+        local label = BlzCreateFrame("EscMenuMainPanelDialogTextTemplate", gameUI, 0, 0)
+
+        table.insert(menuFrames, button)
+        table.insert(menuFrames, icon)
+        table.insert(menuFrames, label)
+
+        if label and label ~= 0 then
+            BlzFrameClearAllPoints(label)
+            BlzFrameSetSize(label, 0.090, 0.030)
+            BlzFrameSetAbsPoint(label, 4, spec.x, 0.265)
+            BlzTextFrameSetText(label, spec.name)
+            BlzFrameSetTextColor(label, 0xFFFFFFFF)
+        end
+    end
+
+    show_menu(false)
+
+    local toggleButton = BlzCreateFrame("ScriptDialogButton", gameUI, 0, 0)
+    local toggleIcon = BlzCreateFrame("EscMenuBackdrop", toggleButton, 0, 0)
+
+    BlzFrameClearAllPoints(toggleButton)
+    BlzFrameSetSize(toggleButton, 0.045, 0.045)
+    BlzFrameSetAbsPoint(toggleButton, 0, 0.030, 0.570)
+    BlzFrameShow(toggleButton, 1)
+
+    BlzFrameClearAllPoints(toggleIcon)
+    BlzFrameSetSize(toggleIcon, 0.050, 0.050)
+    BlzFrameSetAbsPoint(toggleIcon, 0, 0.025, 0.5725)
+    BlzFrameSetTexture(toggleIcon, "ReplaceableTextures\\CommandButtons\\BTNCallToArms.blp", 0, 1)
+    BlzFrameShow(toggleIcon, 1)
+
+    register_frame_click(toggleButton, function()
+        show_menu(not isOpen)
+
+        if isOpen then
+            BlzFrameSetTexture(toggleIcon, "ReplaceableTextures\\CommandButtons\\BTNCancel.blp", 0, 1)
+            print("Cheat console opened")
+        else
+            BlzFrameSetTexture(toggleIcon, "ReplaceableTextures\\CommandButtons\\BTNCallToArms.blp", 0, 1)
+            print("Cheat console closed")
+        end
+    end)
+
+    print("Cheat console test ready")
+end

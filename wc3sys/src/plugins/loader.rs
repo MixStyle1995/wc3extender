@@ -1,8 +1,8 @@
-use std::ffi::CString;
+use std::os::windows::ffi::OsStrExt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
+use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
 
 use wc3::{Wc3PluginInitFn, WC3_API_VERSION, WC3_PLUGIN_ENTRYPOINT};
 
@@ -37,15 +37,16 @@ pub unsafe fn load_all() {
 }
 
 unsafe fn load_one(path: &Path) -> Result<LoadedPlugin, String> {
-    let path_str = path.to_string_lossy();
+    let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+    if wide.contains(&0) {
+        return Err("plugin path contained a null character".to_string());
+    }
+    wide.push(0);
 
-    let c_path = CString::new(path_str.as_bytes())
-        .map_err(|_| "plugin path contained a null byte".to_string())?;
-
-    let module = unsafe { LoadLibraryA(c_path.as_ptr() as *const u8) };
+    let module = unsafe { LoadLibraryW(wide.as_ptr()) };
 
     if module.is_null() {
-        return Err("LoadLibraryA failed".into());
+        return Err("LoadLibraryW failed".into());
     }
 
     let proc = unsafe { GetProcAddress(module, WC3_PLUGIN_ENTRYPOINT.as_ptr()) }

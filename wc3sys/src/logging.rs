@@ -7,6 +7,46 @@ use crate::paths;
 
 static LOG_FILE: OnceLock<Mutex<File>> = OnceLock::new();
 
+#[macro_export]
+macro_rules! log_frame_events {
+    ($($arg:tt)*) => {{
+        #[cfg(feature = "log-frame-events")]
+        {
+            $crate::logging::info(&format!($($arg)*));
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! log_native_registration {
+    ($($arg:tt)*) => {{
+        #[cfg(feature = "log-native-registration")]
+        {
+            $crate::logging::info(&format!($($arg)*));
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! log_mpq_mounting {
+    ($($arg:tt)*) => {{
+        #[cfg(feature = "log-mpq-mounting")]
+        {
+            $crate::logging::info(&format!($($arg)*));
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! log_invoke_code {
+    ($($arg:tt)*) => {{
+        #[cfg(feature = "log-invoke-code")]
+        {
+            $crate::logging::info(&format!($($arg)*));
+        }
+    }};
+}
+
 pub fn init() -> Result<(), String> {
     let dir = paths::logs_dir().ok_or_else(|| "could not determine logs dir".to_string())?;
 
@@ -42,6 +82,7 @@ pub fn error_value(context: &str, err: &impl fmt::Display) {
     error(&format!("{context}: {err}"));
 }
 
+#[allow(dead_code)]
 pub fn warn_value(context: &str, err: &impl fmt::Display) {
     warn(&format!("{context}: {err}"));
 }

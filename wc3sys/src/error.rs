@@ -1,5 +1,7 @@
 use core::fmt;
 
+pub use wc3::archives::MountError;
+
 pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
@@ -7,6 +9,7 @@ pub enum Error {
     Message(String),
     Static(&'static str),
     InlineHook(wc3::InlineHookError),
+    Mount(MountError),
     HookTargetAlreadyRegistered {
         target: usize,
         existing_name: &'static str,
@@ -34,6 +37,7 @@ impl fmt::Display for Error {
             Self::Message(msg) => f.write_str(msg),
             Self::Static(msg) => f.write_str(msg),
             Self::InlineHook(e) => e.fmt(f),
+            Self::Mount(e) => e.fmt(f),
             Self::HookTargetAlreadyRegistered {
                 target,
                 existing_name,
@@ -70,5 +74,11 @@ impl From<&'static str> for Error {
 impl From<wc3::InlineHookError> for Error {
     fn from(value: wc3::InlineHookError) -> Self {
         Self::InlineHook(value)
+    }
+}
+
+impl From<MountError> for Error {
+    fn from(value: MountError) -> Self {
+        Self::Mount(value)
     }
 }

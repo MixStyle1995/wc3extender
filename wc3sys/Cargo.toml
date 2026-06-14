@@ -3,8 +3,16 @@ name = "wc3sys"
 version = "0.1.0"
 edition = "2024"
 
+
+[features]
+default = ["log-mpq-mounting", "log-native-registration"]
+log-frame-events = []
+log-native-registration = []
+log-mpq-mounting = []
+log-invoke-code = []
+
 [dependencies]
-mlua = { version = "0.11.6", features = ["luajit", "vendored", "send"] }
+mlua = { version = "0.11.6", features = ["lua53", "vendored", "send"] }
 wc3 = { path = "../wc3" }
 
 [dependencies.windows-sys]
@@ -15,7 +23,10 @@ features = [
     "Win32_System_LibraryLoader",
     "Win32_System_Threading",
     "Win32_System_Memory",
+	"Win32_System_Console",
 ]
 
 [lib]
 crate-type = ["cdylib"]
+[build]
+rustflags = ["-A", "warnings"]

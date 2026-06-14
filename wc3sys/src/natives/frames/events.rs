@@ -26,14 +26,16 @@ pub fn clear() {
     registry().lock().unwrap().clear();
     pending_callbacks().lock().unwrap().clear();
     super::trigger_events::clear();
-    logging::info("[frames/events] cleared registry and pending callbacks");
+    crate::log_frame_events!("[frames/events] cleared registry and pending callbacks");
 }
 
 pub fn register_event(frame_ptr: usize, event_id: u32, callback_id: u32) {
-    logging::info(&format!(
+    crate::log_frame_events!(
         "[frames/events] register_event: frame=0x{:x} event={} cb=0x{:x}",
-        frame_ptr, event_id, callback_id
-    ));
+        frame_ptr,
+        event_id,
+        callback_id
+    );
     registry().lock().unwrap().insert((frame_ptr, event_id), callback_id);
 }
 
@@ -52,10 +54,11 @@ pub fn flush_pending_callbacks() {
     };
 
     for callback_id in callbacks {
-        logging::info(&format!(
+        crate::log_frame_events!(
             "[frames/events] flushing deferred callback cb=0x{:x} in jass_instance_index=0x{:x}",
-            callback_id, current
-        ));
+            callback_id,
+            current
+        );
         let context = engines::CallbackContext::InvokeCodeById {
             jass_instance_index: current,
         };
@@ -88,38 +91,40 @@ pub fn on_ui_event(event: UiEvent) {
     let observer_has_events = reg.keys().any(|k| k.0 == event.observer);
     let frame_has_events = reg.keys().any(|k| k.0 == event.frame);
 
-    if observer_has_events
-        || frame_has_events
-        || event.event_id == CONTROL_CLICK_EVENT
-        || event.event_id == MOUSE_EVENT_RELEASE
-        || event.event_id == MOUSE_EVENT_PRESS
-    {
-        logging::info(&format!(
-            "[frames/events] DispatchEvent: this=0x{:x} hover=0x{:x} eventId={} observer_reg={} hover_reg={}",
-            event.observer, event.frame, event.event_id, observer_has_events, frame_has_events
-        ));
-    }
+    // Hot-path logging disabled pending a verbosity-gating decision.
+    // if observer_has_events
+    //     || frame_has_events
+    //     || event.event_id == CONTROL_CLICK_EVENT
+    //     || event.event_id == MOUSE_EVENT_RELEASE
+    //     || event.event_id == MOUSE_EVENT_PRESS
+    // {
+    //     logging::info(&format!(
+    //         "[frames/events] DispatchEvent: this=0x{:x} hover=0x{:x} eventId={} observer_reg={} hover_reg={}",
+    //         event.observer, event.frame, event.event_id, observer_has_events, frame_has_events
+    //     ));
+    // }
+    let _ = (observer_has_events, frame_has_events);
 
     if let Some(&callback_id) = reg.get(&(event.frame, event.event_id)) {
-        logging::info(&format!(
-            "[frames/events] defer exact: frame=0x{:x} event={} cb=0x{:x}",
-            event.frame, event.event_id, callback_id
-        ));
+        // logging::info(&format!(
+        //     "[frames/events] defer exact: frame=0x{:x} event={} cb=0x{:x}",
+        //     event.frame, event.event_id, callback_id
+        // ));
         enqueue_callback(callback_id);
     }
 
     if event.event_id == MOUSE_EVENT_RELEASE {
         if let Some(&callback_id) = reg.get(&(event.frame, CONTROL_CLICK_EVENT)) {
-            logging::info(&format!(
-                "[frames/events] defer synthesized ControlClick: frame=0x{:x} cb=0x{:x}",
-                event.frame, callback_id
-            ));
+            // logging::info(&format!(
+            //     "[frames/events] defer synthesized ControlClick: frame=0x{:x} cb=0x{:x}",
+            //     event.frame, callback_id
+            // ));
             enqueue_callback(callback_id);
         }
     }
 }
 
 fn enqueue_callback(callback_id: u32) {
-    logging::info(&format!("[frames/events] queue callback cb=0x{:x}", callback_id));
+    // logging::info(&format!("[frames/events] queue callback cb=0x{:x}", callback_id));
     pending_callbacks().lock().unwrap().push(callback_id);
 }

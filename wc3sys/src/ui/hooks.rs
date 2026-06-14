@@ -13,7 +13,7 @@ pub type CObserverDispatchEventFn = unsafe extern "thiscall" fn(
 pub fn c_observer_dispatch_event(handler: CObserverDispatchEventFn) -> InlineHook {
     InlineHook::new(
         C_OBSERVER_DISPATCH_EVENT,
-        addresses::get().c_observer_dispatch_event,
+        addresses::get().frames.c_observer_dispatch_event,
         handler as *const () as usize,
     )
 }

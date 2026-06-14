@@ -102,7 +102,7 @@ fn event_supported_by_frame(frame: usize, event: FrameEvent) -> bool {
 }
 
 fn player_handle(index: u32) -> u32 {
-    let f: raw::PlayerFn = unsafe { core::mem::transmute(addresses::get().player) };
+    let f: raw::PlayerFn = unsafe { core::mem::transmute(addresses::get().jass.player) };
     unsafe { f(index) }
 }
 
@@ -146,10 +146,10 @@ pub fn register_frame_event(trigger: u32, frame: usize, event_id: i32) -> i32 {
             });
     }
 
-    logging::info(&format!(
+    crate::log_frame_events!(
         "[frames/trigger_events] registered trigger=0x{trigger:x} frame=0x{frame:x} event={:?}",
         frame_event
-    ));
+    );
 
     0
 }

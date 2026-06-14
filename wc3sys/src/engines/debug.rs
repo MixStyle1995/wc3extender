@@ -4,12 +4,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use super::Engine;
 use crate::logging;
 
+#[allow(dead_code)]
 pub struct DebugEngine {
     config_count: AtomicUsize,
     function_count: AtomicUsize,
     register_count: AtomicUsize,
 }
 
+#[allow(dead_code)]
 impl DebugEngine {
     pub fn new() -> Self {
         Self {
@@ -36,7 +38,7 @@ impl Engine for DebugEngine {
     fn register_native(&self, name: &str, signature: &str, _func: *const c_void) {
         let n = self.register_count.fetch_add(1, Ordering::Relaxed) + 1;
         if n <= 3 || n % 50 == 0 {
-            logging::info(&format!("[debug] register_native #{n}: {name} {signature}"));
+            crate::log_native_registration!("[debug] register_native #{n}: {name} {signature}");
         }
     }
 }

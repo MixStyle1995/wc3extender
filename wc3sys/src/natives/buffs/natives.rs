@@ -12,10 +12,8 @@ const VT_CONFIG: usize = 0x32C;
 const VT_BASE_BIND: usize = 0x328;
 const VISUAL_REFRESH_STATIC: usize = 0x6F6C30;
 
-type RawUnit = usize;
+use crate::game::raw::{unit_handle_to_cunit, RawUnit};
 type RawEffect = usize;
-
-type UnitHandleToCUnitFn = unsafe extern "C" fn(handle: u32) -> RawUnit;
 
 type UnitFindEffectFn = unsafe extern "thiscall" fn(
     unit: RawUnit,
@@ -62,21 +60,9 @@ unsafe fn vfunc<T>(object: usize, offset: usize) -> T {
 
 
 
-unsafe fn unit_handle_to_cunit(handle: u32) -> RawUnit {
-    if handle == 0 {
-        return 0;
-    }
-
-    let f: UnitHandleToCUnitFn = unsafe {
-        core::mem::transmute(addresses::get().unit_handle_to_cunit)
-    };
-
-    unsafe { f(handle) }
-}
-
 unsafe fn find_effect_by_stored_rawcode(unit: RawUnit, rawcode: u32) -> RawEffect {
     let f: UnitFindEffectFn = unsafe {
-        core::mem::transmute(addresses::get().unit_find_effect)
+        core::mem::transmute(addresses::get().buffs.unit_find_effect)
     };
 
     unsafe { f(unit, rawcode, 0, 1, 1, 1) }
@@ -156,7 +142,7 @@ unsafe fn refresh_apply_buff_visual(
 
 
 unsafe fn create_effect_with_apply_buff_factory(rawcode: u32) -> RawEffect {
-    let template_addr = addresses::get().create_bslo_effect;
+    let template_addr = addresses::get().buffs.create_bslo_effect;
     let template_len = APPLY_BUFF_FACTORY_WRAPPER_LEN;
     let patch_offsets = &APPLY_BUFF_FACTORY_RAWCODE_PATCH_OFFSETS;
 
@@ -225,7 +211,7 @@ unsafe fn apply_buff_to_unit(target: RawUnit, rawcode: u32, duration: f32) -> bo
     }
 
     let attach: AttachEffectToUnitFn = unsafe {
-        core::mem::transmute(addresses::get().attach_effect_to_unit)
+        core::mem::transmute(addresses::get().buffs.attach_effect_to_unit)
     };
 
     unsafe {
@@ -245,7 +231,7 @@ pub unsafe extern "C" fn apply_buff_native(
     }
 
     let duration = unsafe { (duration_ptr as *const f32).read_unaligned() };
-    let target = unsafe { unit_handle_to_cunit(target_handle) };
+    let target = unit_handle_to_cunit(target_handle);
 
     if unsafe { apply_buff_to_unit(target, rawcode, duration) } {
         1
@@ -264,7 +250,7 @@ pub fn register_custom_natives() {
         let c_sig = CString::new(sig).unwrap();
 
         match engines::request_plugin_native(c_name, c_sig, func) {
-            Ok(_) => logging::info(&format!("status: queued {} for registration", name)),
+            Ok(_) => crate::log_native_registration!("status: queued {} for registration", name),
             Err(e) => logging::error(&format!("status: failed to queue {}: {}", name, e)),
         }
     }

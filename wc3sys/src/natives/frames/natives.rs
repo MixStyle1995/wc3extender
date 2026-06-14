@@ -26,7 +26,6 @@ type CLayerShowHideFn = unsafe extern "thiscall" fn(usize);
 type CFrameDestroyFn = unsafe extern "thiscall" fn(usize, i32) -> i32;
 type CLayerSetAlphaFn = unsafe extern "thiscall" fn(usize, i32, i32);
 type CSimpleFrameSetAlphaFn = unsafe extern "thiscall" fn(usize, i32) -> i32;
-type CSimpleRegionSetVertexColorFn = unsafe extern "thiscall" fn(usize, u32) -> i32;
 type CTextFrameSetTextColorFn = unsafe extern "thiscall" fn(usize, *const u32) -> i32;
 type CSimpleFontStringSetTextFn = unsafe extern "thiscall" fn(usize, *const i8) -> i32;
 type CTextFrameSetTextFn = unsafe extern "thiscall" fn(usize, *const i8) -> i32;
@@ -69,7 +68,7 @@ type SimpleVTableVoidFn = unsafe extern "thiscall" fn(usize);
 fn get_game_ui() -> *mut CFrame {
     unsafe {
         let get_or_create: CGameUIGetOrCreateFn =
-            core::mem::transmute(addresses::get().c_game_ui_get_or_create);
+            core::mem::transmute(addresses::get().frames.c_game_ui_get_or_create);
         get_or_create(1, 0)
     }
 }
@@ -213,16 +212,16 @@ unsafe fn c_frame_from_name(name: *const i8, create_context: i32) -> usize {
     }
 
     let addrs = addresses::get();
-    let normal: FrameRegistryGetEntryFn = unsafe { core::mem::transmute(addrs.c_frame_registry_get_entry) };
+    let normal: FrameRegistryGetEntryFn = unsafe { core::mem::transmute(addrs.frames.c_frame_registry_get_entry) };
     let frame = unsafe { normal(name, create_context) };
     if frame != 0 {
         return frame;
     }
 
     for addr in [
-        addrs.c_simple_frame_registry_get_entry_a,
-        addrs.c_simple_frame_registry_get_entry_b,
-        addrs.c_simple_frame_registry_get_entry_c,
+        addrs.frames.c_simple_frame_registry_get_entry_a,
+        addrs.frames.c_simple_frame_registry_get_entry_b,
+        addrs.frames.c_simple_frame_registry_get_entry_c,
     ] {
         let lookup: FrameRegistryGetEntryFn = unsafe { core::mem::transmute(addr) };
         let frame = unsafe { lookup(name, create_context) };
@@ -548,19 +547,19 @@ unsafe fn frame_set_scale(frame: usize, scale: f32) -> bool {
     match ft {
         FrameType::CSimpleFontString => {
             let f: CSimpleFontStringSetLayoutScaleFn =
-                unsafe { core::mem::transmute(addresses::get().c_simple_font_string_set_layout_scale) };
+                unsafe { core::mem::transmute(addresses::get().frames.c_simple_font_string_set_layout_scale) };
             unsafe { f(frame, scale) };
             true
         }
         FrameType::CSimpleGlueFrame => {
             let f: CSimpleGlueFrameSetLayoutScaleFn =
-                unsafe { core::mem::transmute(addresses::get().c_simple_glue_frame_set_layout_scale) };
+                unsafe { core::mem::transmute(addresses::get().frames.c_simple_glue_frame_set_layout_scale) };
             unsafe { f(frame, scale) };
             true
         }
         FrameType::CSimpleMessageFrame | FrameType::CSimpleStatusBar => {
             let f: CSimpleFrameSetLayoutScaleFn =
-                unsafe { core::mem::transmute(addresses::get().c_simple_frame_set_layout_scale) };
+                unsafe { core::mem::transmute(addresses::get().frames.c_simple_frame_set_layout_scale) };
             unsafe { f(frame, scale) };
             true
         }
@@ -569,7 +568,7 @@ unsafe fn frame_set_scale(frame: usize, scale: f32) -> bool {
                 return false;
             };
             let f: CSpriteFrameSetLayoutScaleFn =
-                unsafe { core::mem::transmute(addresses::get().c_sprite_frame_set_layout_scale) };
+                unsafe { core::mem::transmute(addresses::get().frames.c_sprite_frame_set_layout_scale) };
             unsafe { f(layout, scale) };
             true
         }
@@ -579,7 +578,7 @@ unsafe fn frame_set_scale(frame: usize, scale: f32) -> bool {
             };
             unsafe { write_f32(layout + C_LAYOUT_SCALE, scale) };
             let update: CLayoutFrameUpdateFn =
-                unsafe { core::mem::transmute(addresses::get().c_layout_frame_update) };
+                unsafe { core::mem::transmute(addresses::get().frames.c_layout_frame_update) };
             unsafe { update(layout, 1) };
             true
         }
@@ -599,7 +598,7 @@ unsafe fn frame_get_enable(frame: usize) -> bool {
     }
     if frame_inherits_from_control(ft, false) {
         let f: CControlCheckStateFn =
-            unsafe { core::mem::transmute(addresses::get().c_control_check_state) };
+            unsafe { core::mem::transmute(addresses::get().frames.c_control_check_state) };
         return unsafe { f(frame, 1) };
     }
     true
@@ -613,7 +612,7 @@ unsafe fn frame_set_enable(frame: usize, enabled: bool) -> bool {
     if unsafe { frame_registry::is_simple(frame) } {
         if ft == FrameType::CSimpleButton {
             let f: CSimpleButtonSetEnableFn =
-                unsafe { core::mem::transmute(addresses::get().c_simple_button_set_enable) };
+                unsafe { core::mem::transmute(addresses::get().frames.c_simple_button_set_enable) };
             unsafe { f(frame, enabled) };
             return true;
         }
@@ -621,7 +620,7 @@ unsafe fn frame_set_enable(frame: usize, enabled: bool) -> bool {
     }
     if frame_inherits_from_control(ft, false) {
         let f: CControlEnableFn =
-            unsafe { core::mem::transmute(addresses::get().c_control_enable) };
+            unsafe { core::mem::transmute(addresses::get().frames.c_control_enable) };
         unsafe { f(frame, if enabled { 1 } else { 0 }) };
         return true;
     }
@@ -636,7 +635,7 @@ unsafe fn frame_set_focus(frame: usize, flag: bool) -> bool {
         return false;
     }
     let f: CEditBoxSetFocusFn =
-        unsafe { core::mem::transmute(addresses::get().c_edit_box_set_focus) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_edit_box_set_focus) };
     unsafe { f(frame, flag) };
     true
 }
@@ -692,12 +691,12 @@ unsafe fn call_vtable_void(frame: usize, index: usize) -> bool {
 
 unsafe fn control_is_checked(frame: usize) -> bool {
     let f: CControlCheckStateFn =
-        unsafe { core::mem::transmute(addresses::get().c_control_check_state) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_control_check_state) };
     unsafe { f(frame, 2) }
 }
 
 unsafe fn set_slider_value(frame: usize, value: f32) {
-    let f: CSliderSetValueFn = unsafe { core::mem::transmute(addresses::get().c_slider_set_current_value) };
+    let f: CSliderSetValueFn = unsafe { core::mem::transmute(addresses::get().frames.c_slider_set_current_value) };
     unsafe { f(frame, value) };
 }
 
@@ -723,11 +722,11 @@ unsafe fn frame_set_text_alignment(frame: usize, mut vert: i32, mut horz: i32) -
         return false;
     }
     let set_h: CTextFrameSetJustificationFn =
-        unsafe { core::mem::transmute(addresses::get().c_text_frame_set_horizontal_justification) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_text_frame_set_horizontal_justification) };
     let set_v: CTextFrameSetJustificationFn =
-        unsafe { core::mem::transmute(addresses::get().c_text_frame_set_vertical_justification) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_text_frame_set_vertical_justification) };
     let update: CTextFrameUpdateControlFn =
-        unsafe { core::mem::transmute(addresses::get().c_text_frame_update_control) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_text_frame_update_control) };
     unsafe {
         set_h(frame, horz);
         set_v(frame, vert);
@@ -743,7 +742,7 @@ unsafe fn frame_cage_mouse(frame: usize, enable: bool) -> bool {
     unsafe { write_i32_raw(layout + C_LAYOUT_MOUSE_CAGED, if enable { 1 } else { 0 }) };
     if !enable {
         let f: CLayoutFrameCageMouseFn =
-            unsafe { core::mem::transmute(addresses::get().c_layout_frame_cage_mouse) };
+            unsafe { core::mem::transmute(addresses::get().frames.c_layout_frame_cage_mouse) };
         unsafe { f(layout, enable) };
     }
     true
@@ -868,7 +867,7 @@ unsafe fn frame_show_hide(frame: usize, show: bool) {
 
     let addrs = addresses::get();
     let f: CLayerShowHideFn = unsafe {
-        core::mem::transmute(if show { addrs.c_layer_show } else { addrs.c_layer_hide })
+        core::mem::transmute(if show { addrs.frames.c_layer_show } else { addrs.frames.c_layer_hide })
     };
     unsafe { f(frame) };
 }
@@ -885,7 +884,7 @@ pub unsafe extern "C" fn blz_create_frame(
     priority: u32,
     create_context: u32,
 ) -> u32 {
-    let tramp = hook_manager::trampoline(addresses::get().frame_def_create_frame)
+    let tramp = hook_manager::trampoline(addresses::get().frames.frame_def_create_frame)
         .expect("frame_def_create_frame trampoline missing");
     let original: super::hooks::FrameDefCreateFrameFn = unsafe { core::mem::transmute(tramp) };
 
@@ -934,7 +933,7 @@ pub unsafe extern "C" fn blz_create_simple_frame(
     };
 
     let create: FrameDefCreateSimpleFrameFn =
-        unsafe { core::mem::transmute(addresses::get().frame_def_create_simple_frame) };
+        unsafe { core::mem::transmute(addresses::get().frames.frame_def_create_simple_frame) };
     let result = unsafe { create(c_name.as_ptr(), parent_ptr, create_context as i32) };
     logging::info(&format!(
         "[frames] BlzCreateSimpleFrame: name='{}' parent=0x{:x} -> 0x{:x}",
@@ -1202,21 +1201,21 @@ pub unsafe extern "C" fn blz_frame_set_font(
     unsafe {
         match ft {
             FrameType::CEditBox => {
-                let f: CEditBoxSetFontFn = core::mem::transmute(addresses::get().c_edit_box_set_font);
+                let f: CEditBoxSetFontFn = core::mem::transmute(addresses::get().frames.c_edit_box_set_font);
                 f(frame_usize, filename.as_ptr(), height, flags as i32);
             }
             FrameType::CSimpleMessageFrame => {
                 let f: CSimpleFrameSetFontFn =
-                    core::mem::transmute(addresses::get().c_simple_message_frame_set_font);
+                    core::mem::transmute(addresses::get().frames.c_simple_message_frame_set_font);
                 f(frame_usize, filename.as_ptr(), height, flags as i32);
             }
             FrameType::CSimpleFontString => {
                 let f: CSimpleFrameSetFontFn =
-                    core::mem::transmute(addresses::get().c_simple_font_string_set_font);
+                    core::mem::transmute(addresses::get().frames.c_simple_font_string_set_font);
                 f(frame_usize, filename.as_ptr(), height, flags as i32);
             }
             _ if !frame_registry::is_simple(frame_usize) => {
-                let f: CFrameSetFontFn = core::mem::transmute(addresses::get().c_frame_set_font);
+                let f: CFrameSetFontFn = core::mem::transmute(addresses::get().frames.c_frame_set_font);
                 f(frame_usize, filename.as_ptr(), height, flags as i32);
             }
             _ => logging::warn(&format!("[frames] BlzFrameSetFont unsupported frame=0x{frame:x} type={ft:?}")),
@@ -1246,7 +1245,7 @@ pub unsafe extern "C" fn blz_frame_set_text_size_limit(frame: u32, size: u32) {
         return;
     }
     let f: CEditBoxSetTextSizeLimitFn =
-        unsafe { core::mem::transmute(addresses::get().c_edit_box_set_text_size_limit) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_edit_box_set_text_size_limit) };
     unsafe { f(frame as usize, size as i32) };
 }
 
@@ -1275,7 +1274,7 @@ pub unsafe extern "C" fn blz_frame_click(frame: u32) {
 
     if frame_inherits_from_control(ft, false) {
         let f: CControlDispatchClickFn =
-            unsafe { core::mem::transmute(addresses::get().c_control_dispatch_click) };
+            unsafe { core::mem::transmute(addresses::get().frames.c_control_dispatch_click) };
         unsafe { f(frame_usize, 1) };
     }
 }
@@ -1298,11 +1297,11 @@ pub unsafe extern "C" fn blz_frame_set_value(frame: u32, value_ptr: u32) {
             FrameType::CSlider | FrameType::CScrollBar => set_slider_value(frame_usize, value),
             FrameType::CSimpleStatusBar => {
                 let f: CSimpleStatusBarSetValueFn =
-                    core::mem::transmute(addresses::get().c_simple_status_bar_set_value);
+                    core::mem::transmute(addresses::get().frames.c_simple_status_bar_set_value);
                 f(frame_usize, value);
             }
             FrameType::CStatusBar => {
-                let f: CStatusBarSetValueFn = core::mem::transmute(addresses::get().c_status_bar_set_value);
+                let f: CStatusBarSetValueFn = core::mem::transmute(addresses::get().frames.c_status_bar_set_value);
                 f(frame_usize, value, 0);
             }
             FrameType::CTextArea => {
@@ -1370,12 +1369,12 @@ pub unsafe extern "C" fn blz_frame_set_min_max_value(frame: u32, min_ptr: u32, m
             }
             FrameType::CSimpleStatusBar => {
                 let f: CSimpleStatusBarSetMinMaxValueFn =
-                    core::mem::transmute(addresses::get().c_simple_status_bar_set_min_max_value);
+                    core::mem::transmute(addresses::get().frames.c_simple_status_bar_set_min_max_value);
                 f(frame_usize, min, max);
             }
             FrameType::CStatusBar => {
                 let f: CStatusBarSetMinMaxValueFn =
-                    core::mem::transmute(addresses::get().c_status_bar_set_min_max_value);
+                    core::mem::transmute(addresses::get().frames.c_status_bar_set_min_max_value);
                 f(frame_usize, min, max);
             }
             _ => logging::warn(&format!("[frames] BlzFrameSetMinMaxValue unsupported frame=0x{frame:x} type={ft:?}")),
@@ -1413,15 +1412,15 @@ pub unsafe extern "C" fn blz_frame_set_model(
     unsafe {
         match ft {
             FrameType::CModelFrame => {
-                let f: CModelFrameAddModelFn = core::mem::transmute(addresses::get().c_model_frame_add_model);
+                let f: CModelFrameAddModelFn = core::mem::transmute(addresses::get().frames.c_model_frame_add_model);
                 f(frame_usize, model.as_ptr(), model_type as i32);
             }
             FrameType::CSpriteFrame => {
-                let f: CSpriteFrameSetArtFn = core::mem::transmute(addresses::get().c_sprite_frame_set_art);
+                let f: CSpriteFrameSetArtFn = core::mem::transmute(addresses::get().frames.c_sprite_frame_set_art);
                 f(frame_usize, model.as_ptr(), model_type as i32, flag as i32);
             }
             FrameType::CStatusBar => {
-                let f: CStatusBarSetArtFn = core::mem::transmute(addresses::get().c_status_bar_set_art);
+                let f: CStatusBarSetArtFn = core::mem::transmute(addresses::get().frames.c_status_bar_set_art);
                 f(frame_usize, model.as_ptr(), model_type as i32);
             }
             _ => logging::warn(&format!("[frames] BlzFrameSetModel unsupported frame=0x{frame:x} type={ft:?}")),
@@ -1435,7 +1434,7 @@ pub unsafe extern "C" fn blz_frame_set_sprite_animate(frame: u32, primary_prop: 
     }
 
     let get_sprite: CSpriteFrameGetSpriteFn =
-        unsafe { core::mem::transmute(addresses::get().c_sprite_frame_get_sprite) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_sprite_frame_get_sprite) };
     let sprite = unsafe { get_sprite(frame as usize) };
     if sprite == 0 {
         return;
@@ -1443,7 +1442,7 @@ pub unsafe extern "C" fn blz_frame_set_sprite_animate(frame: u32, primary_prop: 
 
     let prop = primary_prop as i32;
     let set_anim: CSpriteUberSetAnimationFn =
-        unsafe { core::mem::transmute(addresses::get().c_sprite_uber_set_animation) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_sprite_uber_set_animation) };
     unsafe { set_anim(sprite, &prop as *const i32, 1, flags as i32) };
 }
 
@@ -1479,12 +1478,12 @@ pub unsafe extern "C" fn blz_frame_set_texture(
                     "[frames] BlzFrameSetTexture: unknown frame type frame=0x{frame:x} vtable=0x{vtable:x} static_key=0x{off:x}; trying backdrop texture fallback"
                 ));
                 let set_texture: CBackdropSetTextureFn =
-                    core::mem::transmute(addrs.c_backdrop_set_texture);
+                    core::mem::transmute(addrs.frames.c_backdrop_set_texture);
                 set_texture(frame as *mut c_void, tex_ptr, 0, flag, 0, blend);
             }
             FrameType::CBackdropFrame => {
                 let set_texture: CBackdropSetTextureFn =
-                    core::mem::transmute(addrs.c_backdrop_set_texture);
+                    core::mem::transmute(addrs.frames.c_backdrop_set_texture);
                 set_texture(frame as *mut c_void, tex_ptr, 0, flag, 0, blend);
             }
             FrameType::CStatBar
@@ -1493,12 +1492,12 @@ pub unsafe extern "C" fn blz_frame_set_texture(
             | FrameType::CHeroLevelBar
             | FrameType::CBuildTimeIndicator => {
                 let set_texture: CSimpleStatusBarSetTextureFn =
-                    core::mem::transmute(addrs.c_simple_status_bar_set_texture);
+                    core::mem::transmute(addrs.frames.c_simple_status_bar_set_texture);
                 set_texture(frame_usize, tex_ptr, blend);
             }
             FrameType::CSimpleFrame | FrameType::CSimpleTexture => {
                 let set_texture: CSimpleTextureSetTextureFn =
-                    core::mem::transmute(addrs.c_simple_texture_set_texture);
+                    core::mem::transmute(addrs.frames.c_simple_texture_set_texture);
                 set_texture(frame_usize, tex_ptr, blend);
             }
             _ => {
@@ -1514,24 +1513,24 @@ pub unsafe extern "C" fn blz_load_toc_file(name_handle: u32) -> u32 {
     let c_name = native_string_cstring(name_handle);
 
     let addrs = addresses::get();
-    let str_hash_table = addrs.string_hash_node_table;
-    let frame_hash_table = addrs.frame_hash_node_table;
-    let unk_global = addrs.toc_unk_global;
+    let str_hash_table = addrs.frames.string_hash_node_table;
+    let frame_hash_table = addrs.frames.frame_hash_node_table;
+    let unk_global = addrs.frames.toc_unk_global;
 
     let str_hash_cap = unsafe { *((str_hash_table + 24) as *const i32) };
     if str_hash_cap < 65535 {
-        let grow_fn: StringHashNodeGrowFn = unsafe { core::mem::transmute(addrs.string_hash_node_grow) };
+        let grow_fn: StringHashNodeGrowFn = unsafe { core::mem::transmute(addrs.frames.string_hash_node_grow) };
         unsafe { grow_fn(str_hash_table, 65535) };
     }
 
     let frame_hash_cap = unsafe { *((frame_hash_table + 24) as *const i32) };
     if frame_hash_cap < 65535 {
         let grow_fn: BaseFrameHashNodeGrowFn =
-            unsafe { core::mem::transmute(addrs.base_frame_hash_node_grow) };
+            unsafe { core::mem::transmute(addrs.frames.base_frame_hash_node_grow) };
         unsafe { grow_fn(frame_hash_table, 65535) };
     }
 
-    let read_fn: FdFileReadFn = unsafe { core::mem::transmute(addrs.frame_fd_file_read) };
+    let read_fn: FdFileReadFn = unsafe { core::mem::transmute(addrs.frames.frame_fd_file_read) };
     let result = unsafe { read_fn(c_name.as_ptr(), str_hash_table, frame_hash_table, unk_global) };
 
     logging::info(&format!(
@@ -1550,7 +1549,7 @@ pub unsafe extern "C" fn blz_frame_set_all_points(frame: u32, relative: u32) {
         return;
     };
     let set_all_points: CLayoutFrameSetAllPointsFn =
-        unsafe { core::mem::transmute(addresses::get().c_layout_frame_set_all_points) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_layout_frame_set_all_points) };
     unsafe { set_all_points(layout_frame, relative_layout, 1) };
     logging::info(&format!("[frames] BlzFrameSetAllPoints called on 0x{frame:x}"));
 }
@@ -1560,7 +1559,7 @@ pub unsafe extern "C" fn blz_frame_clear_all_points(frame: u32) {
         return;
     };
     let clear_all_points: CLayoutFrameClearAllPointsFn =
-        unsafe { core::mem::transmute(addresses::get().c_layout_frame_clear_all_points) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_layout_frame_clear_all_points) };
     unsafe { clear_all_points(layout_frame, 1) };
     logging::info(&format!("[frames] BlzFrameClearAllPoints called on 0x{frame:x}"));
 }
@@ -1607,7 +1606,7 @@ pub unsafe extern "C" fn blz_frame_set_abs_point(frame: u32, point: u32, x_ptr: 
     let x = unsafe { *(x_ptr as *const f32) };
     let y = unsafe { *(y_ptr as *const f32) };
     let set_abs_point: CLayoutFrameSetPointAbsFn =
-        unsafe { core::mem::transmute(addresses::get().c_layout_frame_set_point_abs) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_layout_frame_set_point_abs) };
     unsafe { set_abs_point(layout_frame, point as i32, x, y, 1) };
     logging::info(&format!(
         "[frames] BlzFrameSetAbsPoint called on 0x{frame:x} point={point} x={x} y={y}"
@@ -1635,7 +1634,7 @@ pub unsafe extern "C" fn blz_frame_set_point(
     let x = unsafe { *(x_ptr as *const f32) };
     let y = unsafe { *(y_ptr as *const f32) };
     let set_point: CLayoutFrameSetPointFn =
-        unsafe { core::mem::transmute(addresses::get().c_layout_frame_set_point) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_layout_frame_set_point) };
     unsafe {
         set_point(
             layout_frame,
@@ -1682,7 +1681,7 @@ pub unsafe extern "C" fn blz_simple_font_string_set_text(frame: u32, text_handle
     }
     let c_text = native_string_cstring(text_handle);
     let set_text: CSimpleFontStringSetTextFn =
-        unsafe { core::mem::transmute(addresses::get().c_simple_font_string_set_text) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_simple_font_string_set_text) };
     unsafe { set_text(frame as usize, c_text.as_ptr()) };
     logging::info(&format!("[frames] BlzSimpleFontStringSetText called on 0x{frame:x}"));
 }
@@ -1693,7 +1692,7 @@ pub unsafe extern "C" fn blz_text_frame_set_text(frame: u32, text_handle: u32) {
     }
     let c_text = native_string_cstring(text_handle);
     let set_text: CTextFrameSetTextFn =
-        unsafe { core::mem::transmute(addresses::get().c_text_frame_set_text) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_text_frame_set_text) };
     unsafe { set_text(frame as usize, c_text.as_ptr()) };
     logging::info(&format!("[frames] BlzTextFrameSetText called on 0x{frame:x}"));
 }
@@ -1867,7 +1866,7 @@ pub unsafe extern "C" fn blz_frame_set_script(frame: u32, event_id: u32, callbac
     super::events::register_event(frame as usize, event_id, callback_id);
 
     let register_event: CObserverRegisterEventFn =
-        unsafe { core::mem::transmute(addresses::get().c_observer_register_event) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_observer_register_event) };
 
     let parent_observer = unsafe {
         let p = frame_registry::parent(frame as usize);
@@ -1899,7 +1898,7 @@ pub unsafe extern "C" fn blz_destroy_frame(frame: u32) {
     if unsafe { frame_registry::is_simple(frame as usize) } {
         unsafe { frame_show_hide(frame as usize, false) };
     } else {
-        let destroy: CFrameDestroyFn = unsafe { core::mem::transmute(addresses::get().c_frame_destroy) };
+        let destroy: CFrameDestroyFn = unsafe { core::mem::transmute(addresses::get().frames.c_frame_destroy) };
         unsafe { destroy(frame as usize, 1) };
     }
     logging::info(&format!("[frames] BlzDestroyFrame called on 0x{frame:x}"));
@@ -1912,11 +1911,11 @@ pub unsafe extern "C" fn blz_frame_set_alpha(frame: u32, alpha: u32) {
     let alpha = alpha as i32;
     if unsafe { frame_registry::is_simple(frame as usize) } {
         let set_alpha: CSimpleFrameSetAlphaFn =
-            unsafe { core::mem::transmute(addresses::get().c_simple_frame_set_alpha) };
+            unsafe { core::mem::transmute(addresses::get().frames.c_simple_frame_set_alpha) };
         unsafe { set_alpha(frame as usize, alpha) };
     } else if unsafe { frame_registry::get_layout(frame as usize) } != Some(frame as usize) {
         let set_alpha: CLayerSetAlphaFn =
-            unsafe { core::mem::transmute(addresses::get().c_layer_set_alpha) };
+            unsafe { core::mem::transmute(addresses::get().frames.c_layer_set_alpha) };
         unsafe { set_alpha(frame as usize, alpha, 0) };
     }
     logging::info(&format!("[frames] BlzFrameSetAlpha called on 0x{frame:x} alpha={alpha}"));
@@ -2086,7 +2085,7 @@ pub unsafe extern "C" fn blz_frame_set_text_color(frame: u32, color: u32) {
         return;
     }
     let set_color: CTextFrameSetTextColorFn =
-        unsafe { core::mem::transmute(addresses::get().c_text_frame_set_text_color) };
+        unsafe { core::mem::transmute(addresses::get().frames.c_text_frame_set_text_color) };
     unsafe { set_color(frame as usize, &color as *const u32) };
     logging::info(&format!("[frames] BlzFrameSetTextColor called on 0x{frame:x}"));
 }

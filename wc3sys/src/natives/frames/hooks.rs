@@ -17,7 +17,7 @@ pub type FrameDefCreateFrameFn = unsafe extern "C" fn(
 pub fn frame_def_create_frame(handler: FrameDefCreateFrameFn) -> InlineHook {
     InlineHook::new(
         FRAME_DEF_CREATE_FRAME,
-        addresses::get().frame_def_create_frame,
+        addresses::get().frames.frame_def_create_frame,
         handler as *const () as usize,
     )
 }
@@ -42,7 +42,7 @@ unsafe extern "C" fn frame_def_create_frame_handler(
         create_context
     };
 
-    let tramp = hook_manager::trampoline(addresses::get().frame_def_create_frame)
+    let tramp = hook_manager::trampoline(addresses::get().frames.frame_def_create_frame)
         .expect("frame_def_create_frame trampoline missing");
     let original: FrameDefCreateFrameFn = unsafe { core::mem::transmute(tramp) };
     unsafe { original(name_str, parent, a3, a4, create_context) }

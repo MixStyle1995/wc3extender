@@ -10,8 +10,6 @@ static LAST_JASS_INSTANCE_INDEX: AtomicUsize = AtomicUsize::new(usize::MAX);
 
 pub fn install() -> crate::error::Result<()> {
     hook_manager::install(jass::hooks::register_native(register_native_handler))?;
-    hook_manager::install(jass::hooks::run_function(run_function_handler))?;
-    hook_manager::install(jass::hooks::register_natives(register_natives_handler))?;
     hook_manager::install(jass::hooks::invoke_code_by_id(invoke_code_handler))?;
     Ok(())
 }
@@ -69,7 +67,7 @@ unsafe extern "C" fn register_native_handler(
         }
     }
 
-    let tramp = hook_manager::trampoline(addresses::get().register_native)
+    let tramp = hook_manager::trampoline(addresses::get().jass.register_native)
         .expect("jass_register_native trampoline missing");
 
     unsafe {
@@ -78,48 +76,10 @@ unsafe extern "C" fn register_native_handler(
     }
 }
 
-unsafe extern "C" fn run_function_handler(
-    this: *mut c_void,
-    function_name: *const u8,
-    arg_block: i32,
-    flag: i32,
-    op_limit: u32,
-    a6: i32,
-) -> jass::hooks::CodeResult {
-    if !function_name.is_null() {
-        if let Ok(name) = unsafe { CStr::from_ptr(function_name as *const i8) }.to_str() {
-            let instance_index = this as usize as u32;
-            let _instance_guard = enter_jass_instance_index(instance_index);
-            super::manager::on_jass_function_called(name);
-        }
-    }
 
-    let tramp = hook_manager::trampoline(addresses::get().run_function)
-        .expect("jass_run_function trampoline missing");
-
-    unsafe {
-        let original: jass::hooks::RunFunctionFn = core::mem::transmute(tramp);
-        original(this, function_name, arg_block, flag, op_limit, a6)
-    }
-}
-
-unsafe extern "C" fn register_natives_handler() -> i32 {
-    let tramp = hook_manager::trampoline(addresses::get().register_natives)
-        .expect("jass_register_natives trampoline missing");
-
-    let ret = unsafe {
-        let original: unsafe extern "C" fn() -> i32 = core::mem::transmute(tramp);
-        let retv = original();
-        logging::info(&format!("registered game native ret={retv}"));
-        retv
-    };
-
-    super::manager::on_jass_native_registration_phase();
-    ret
-}
 
 unsafe fn vm_ptr() -> usize {
-    let g = addresses::get().jass_vm_global;
+    let g = addresses::get().jass.jass_vm_global;
     unsafe { (g as *const usize).read_unaligned() }
 }
 
@@ -140,17 +100,17 @@ unsafe extern "cdecl" fn invoke_code_handler(
     if code_id >= 0x80000000 {
         let vm = unsafe { vm_ptr() };
         if vm == 0 {
-            logging::warn(&format!("[invoke_code #{n}] ours but vm ptr is null"));
+            crate::log_invoke_code!("[invoke_code #{n}] ours but vm ptr is null");
             return 1;
         }
 
         let cur_fn_addr = vm + 8;
         let saved = unsafe { (cur_fn_addr as *const u32).read_unaligned() };
 
-        logging::info(&format!(
+        crate::log_invoke_code!(
             "[invoke_code #{n}] ours code_id=0x{:x} jass_instance_index=0x{:x} vm=0x{:x} [vm+8]=0x{:x}",
             code_id, jass_instance_index, vm, saved
-        ));
+        );
 
         unsafe { (cur_fn_addr as *mut u32).write_unaligned(jass_instance_index) };
 
@@ -166,7 +126,7 @@ unsafe extern "cdecl" fn invoke_code_handler(
         }
     }
 
-    let tramp = hook_manager::trampoline(addresses::get().invoke_code_by_id)
+    let tramp = hook_manager::trampoline(addresses::get().jass.invoke_code_by_id)
         .expect("jass_invoke_code_by_id trampoline missing");
 
     unsafe {

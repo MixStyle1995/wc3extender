@@ -1,11 +1,13 @@
+const WC3SYS_DLL_W: [u16; 11] = [119, 99, 51, 115, 121, 115, 46, 100, 108, 108, 0];
+
 use core::ffi::c_void;
 use std::sync::OnceLock;
-use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
+use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
 
 fn wc3sys_handle() -> *mut c_void {
     static H: OnceLock<usize> = OnceLock::new();
     *H.get_or_init(|| unsafe {
-        GetModuleHandleA(b"wc3sys.dll\0".as_ptr()) as usize
+        GetModuleHandleW(WC3SYS_DLL_W.as_ptr()) as usize
     }) as *mut c_void
 }
 
@@ -28,3 +30,6 @@ sys_fn!(pub(crate) wc3sys_make_jass_string: extern "C" fn(*const u8) -> i32);
 sys_fn!(pub(crate) wc3sys_is_plugin_loaded: extern "C" fn(*const u8) -> bool);
 sys_fn!(pub(crate) wc3sys_callbacks_mint: extern "C" fn(*const u8, u64) -> u32);
 sys_fn!(pub(crate) wc3sys_mount_mpq_file: extern "C" fn(*const u8, i32) -> u32);
+sys_fn!(pub(crate) wc3sys_queue_mpq_file: extern "C" fn(*const u8, i32) -> i32);
+
+sys_fn!(pub(crate) wc3sys_game_addrs: extern "C" fn() -> *const crate::addresses::GameAddrs);

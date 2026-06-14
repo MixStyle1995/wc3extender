@@ -43,6 +43,7 @@ impl LuaRuntime {
 
         let lua = Lua::new();
         self.install_print(&lua)?;
+        self.install_fourcc(&lua)?;
         lua.load(r#"print("LuaEngine ready")"#)
             .exec()
             .map_err(|e| e.to_string())?;
@@ -91,6 +92,28 @@ impl LuaRuntime {
             .map_err(|e| e.to_string())?;
 
         lua.globals().set("print", print).map_err(|e| e.to_string())
+    }
+
+    fn install_fourcc(&self, lua: &Lua) -> Result<(), String> {
+        let fourcc = lua
+            .create_function(|_, s: mlua::String| {
+                let bytes = s.as_bytes();
+
+                if bytes.len() != 4 {
+                    return Err(mlua::Error::external(format!(
+                        "FourCC expects exactly 4 bytes, got {}",
+                        bytes.len()
+                    )));
+                }
+
+                Ok(((bytes[0] as u32) << 24)
+                    | ((bytes[1] as u32) << 16)
+                    | ((bytes[2] as u32) << 8)
+                    | (bytes[3] as u32))
+            })
+            .map_err(|e| e.to_string())?;
+
+        lua.globals().set("FourCC", fourcc).map_err(|e| e.to_string())
     }
 }
 

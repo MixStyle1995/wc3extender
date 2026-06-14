@@ -1,6 +1,4 @@
 use core::ptr;
-use std::ffi::CStr;
-use std::path::Path;
 
 use crate::patch::*;
 

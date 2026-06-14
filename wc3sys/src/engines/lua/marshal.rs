@@ -34,17 +34,20 @@ impl Marshaller {
     ) -> Result<u32, String> {
         match ty {
             JassType::Int | JassType::Handle => match v {
+                Value::Nil => Ok(0),
                 Value::Integer(i) => Ok(*i as i32 as u32),
                 Value::Number(n) => Ok(*n as i32 as u32),
                 _ => Err("expected integer".into()),
             },
             JassType::Bool => match v {
+                Value::Nil => Ok(0),
                 Value::Boolean(b) => Ok(if *b { 1 } else { 0 }),
                 Value::Integer(i) => Ok(if *i != 0 { 1 } else { 0 }),
                 _ => Err("expected bool".into()),
             },
             JassType::Real => {
                 let f = match v {
+                    Value::Nil => 0.0,
                     Value::Number(n) => *n as f32,
                     Value::Integer(i) => *i as f32,
                     _ => return Err("expected number".into()),
@@ -56,6 +59,7 @@ impl Marshaller {
             }
             JassType::Str => self.string_arg(v, native_name, arg_idx),
             JassType::Code => match v {
+                Value::Nil => Ok(0),
                 Value::Function(f) => {
                     let Some(lua) = self.runtime.lua() else {
                         return Err("lua state not initialized".to_string());
@@ -75,6 +79,7 @@ impl Marshaller {
             .ok_or_else(|| "string argument passed with no known JASS instance".to_string())?;
 
         let handle = match v {
+            Value::Nil => return Ok(0),
             Value::Integer(i) => *i as i32 as u32,
             Value::Number(n) => *n as i32 as u32,
             Value::String(s) => {

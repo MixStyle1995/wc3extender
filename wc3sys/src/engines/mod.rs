@@ -15,17 +15,11 @@ use std::ffi::CString;
 
 use crate::logging;
 
-pub use handlers::{best_jass_instance_index, current_jass_instance_index};
+pub use handlers::{best_jass_instance_index, current_jass_instance_index, enter_jass_instance_index};
 
 #[derive(Debug, Clone, Copy)]
 pub enum CallbackContext {
     InvokeCodeById { jass_instance_index: u32 },
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct EngineMapSignature {
-    pub marker_path: &'static str,
-    pub payload_path: &'static str,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -51,13 +45,18 @@ pub trait Engine: Send + Sync {
         Ok(())
     }
 
-    fn map_signature(&self) -> Option<EngineMapSignature> {
+    fn map_entrypoint(&self) -> Option<&'static str> {
         None
     }
 
     fn set_map_payload(&self, _payload: Option<Vec<u8>>) {}
 
     fn config(&self);
+
+    /// Called after `config` once all known natives have been registered
+    /// with the engine.
+    fn post_config(&self) {}
+
     fn function_called(&self, name: &str);
     fn register_native(&self, name: &str, signature: &str, func: *const c_void);
 
@@ -66,7 +65,7 @@ pub trait Engine: Send + Sync {
     }
 }
 
-#[allow(dead_code)]
+#[allow(unused)]
 pub fn install(engine: std::sync::Arc<dyn Engine>) -> crate::error::Result<()> {
     manager::install(engine)
 }
@@ -88,7 +87,5 @@ pub fn try_dispatch_callback_code(code_id: u32, context: CallbackContext) -> boo
 }
 
 pub fn init() -> crate::error::Result<()> {
-
     manager::init()
-
 }

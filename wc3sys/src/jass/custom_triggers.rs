@@ -58,7 +58,7 @@ pub fn fire_custom_trigger(
     let addrs = addresses::get();
 
     let is_enabled: bool = unsafe {
-        let f: raw::IsTriggerEnabledFn = core::mem::transmute(addrs.is_trigger_enabled);
+        let f: raw::IsTriggerEnabledFn = core::mem::transmute(addrs.jass.is_trigger_enabled);
         f(trigger_handle) != 0
     };
 
@@ -68,7 +68,7 @@ pub fn fire_custom_trigger(
     }
 
     let evaluate_ok: bool = unsafe {
-        let f: raw::TriggerEvaluateFn = core::mem::transmute(addrs.trigger_evaluate);
+        let f: raw::TriggerEvaluateFn = core::mem::transmute(addrs.jass.trigger_evaluate);
         f(trigger_handle) != 0
     };
 
@@ -78,7 +78,7 @@ pub fn fire_custom_trigger(
     }
 
     unsafe {
-        let f: raw::TriggerExecuteFn = core::mem::transmute(addrs.trigger_execute);
+        let f: raw::TriggerExecuteFn = core::mem::transmute(addrs.jass.trigger_execute);
         f(trigger_handle);
     }
 
@@ -96,7 +96,7 @@ unsafe extern "C" fn get_trigger_player_hook() -> u32 {
         }
     }
 
-    let tramp = hook_manager::trampoline(addresses::get().get_trigger_player)
+    let tramp = hook_manager::trampoline(addresses::get().jass.get_trigger_player)
         .expect("GetTriggerPlayer trampoline missing");
     let original: GetTriggerPlayerFn = unsafe { core::mem::transmute(tramp) };
     unsafe { original() }
@@ -109,7 +109,7 @@ unsafe extern "C" fn get_triggering_trigger_hook() -> u32 {
         }
     }
 
-    let tramp = hook_manager::trampoline(addresses::get().get_triggering_trigger)
+    let tramp = hook_manager::trampoline(addresses::get().jass.get_triggering_trigger)
         .expect("GetTriggeringTrigger trampoline missing");
     let original: GetTriggeringTriggerFn = unsafe { core::mem::transmute(tramp) };
     unsafe { original() }
@@ -122,7 +122,7 @@ unsafe extern "C" fn get_trigger_event_id_hook() -> i32 {
         }
     }
 
-    let tramp = hook_manager::trampoline(addresses::get().get_trigger_event_id)
+    let tramp = hook_manager::trampoline(addresses::get().jass.get_trigger_event_id)
         .expect("GetTriggerEventId trampoline missing");
     let original: GetTriggerEventIdFn = unsafe { core::mem::transmute(tramp) };
     unsafe { original() }
@@ -134,19 +134,19 @@ pub fn install() -> crate::error::Result<()> {
     let addrs = addresses::get();
     hook_manager::install(InlineHook::new(
         "custom_get_trigger_player",
-        addrs.get_trigger_player,
+        addrs.jass.get_trigger_player,
         get_trigger_player_hook as *const () as usize,
     ))?;
 
     hook_manager::install(InlineHook::new(
         "custom_get_triggering_trigger",
-        addrs.get_triggering_trigger,
+        addrs.jass.get_triggering_trigger,
         get_triggering_trigger_hook as *const () as usize,
     ))?;
 
     hook_manager::install(InlineHook::new(
         "custom_get_trigger_event_id",
-        addrs.get_trigger_event_id,
+        addrs.jass.get_trigger_event_id,
         get_trigger_event_id_hook as *const () as usize,
     ))?;
 

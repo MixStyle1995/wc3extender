@@ -67,19 +67,19 @@ pub fn flush_pending() {
     drop(queue);
 
     for n in drained {
-        logging::info(&format!(
+        crate::log_native_registration!(
             "registering plugin native {} {}",
             n.name.to_string_lossy(),
             n.signature.to_string_lossy()
-        ));
+        );
 
         let ret = jass_raw::register_native(&n.name, &n.signature, n.func);
 
-        logging::info(&format!(
+        crate::log_native_registration!(
             "registered plugin native {} {} ret={ret}",
             n.name.to_string_lossy(),
             n.signature.to_string_lossy()
-        ));
+        );
     }
 }
 

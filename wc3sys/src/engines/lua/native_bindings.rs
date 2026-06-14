@@ -65,7 +65,7 @@ pub fn register_native(
                     }
                     _ => {
                         let v = invoke_int(addr, &native_args).map_err(mlua::Error::external)?;
-                        Ok(Value::Integer(v as i32))
+                        Ok(Value::Integer((v as i32) as i64))
                     }
                 }
             }
