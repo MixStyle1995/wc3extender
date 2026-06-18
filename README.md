@@ -23,4 +23,4 @@ WIP Warcraft III feature extender. Aiming to be roughly the SKSE equivalent for 
 
 ## Credits
 
-- [W3CE](https://github.com/Warcraft-III-Community-Edition/W3CE/) for their implementation of frames which i stole.
+- [W3CE](https://github.com/Warcraft-III-Community-Edition/W3CE/) for their implementation of frames.
